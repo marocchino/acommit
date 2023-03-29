@@ -113,10 +113,7 @@ func commitWithEditor(message string) error {
 	// Close the temp file to flush the contents
 	tempFile.Close()
 
-	// Set the GIT_EDITOR environment variable to open the file with the user's default editor
-	os.Setenv("GIT_EDITOR", fmt.Sprintf("'%s' '%s'", os.Getenv("EDITOR"), tempFile.Name()))
-
-	cmd := exec.Command("git", "commit")
+	cmd := exec.Command("git", "commit", "-t", tempFile.Name())
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
