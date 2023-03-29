@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -44,7 +44,11 @@ func main() {
 		fmt.Printf("Error unmarshalling JSON: %v\n", err)
 		return
 	}
-	commitWithEditor(text)
+	err = commitWithEditor(text)
+	if err != nil {
+		fmt.Printf("Error running git commit: %v\n", err)
+		return
+	}
 }
 
 func getStagedDiff() (string, error) {
@@ -76,7 +80,7 @@ func generateText(prompt string, maxTokens int) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
@@ -98,7 +102,7 @@ func parseResponse(result string) (string, error) {
 
 func commitWithEditor(message string) error {
 	// Create a temporary file to hold the commit message
-	tempFile, err := ioutil.TempFile("", "commit-message")
+	tempFile, err := os.CreateTemp("", "commit-message")
 	if err != nil {
 		return err
 	}
