@@ -36,7 +36,7 @@ func main() {
 	if output == "" {
 		fmt.Println("No staged changes.")
 	}
-	p := fmt.Sprintf("You are to act as the author of a commit message in git. Your mission is to create clean and comprehensive commit messages in the gitmoji commit convention and explain why a change was done. I'll send you an output of 'git diff --staged' command, and you convert it into a commit message. Add a short description of WHY the changes are done after the commit message. Don't start it with 'This commit', just describe the changes. Use the present tense. Commit title must not be longer than 74 characters.\n%s", output)
+	p := fmt.Sprintf("You are to act as the author of a commit message in git. Your mission is to create clean and comprehensive commit messages in the gitmoji convention with emoji and explain why a change was done. I'll send you an output of 'git diff --staged' command, and you convert it into a commit message. Add a short description of WHY the changes are done after the commit message. Don't start it with 'This commit', just describe the changes. Use the present tense. Commit title must not be longer than 74 characters.\n%s", output)
 	result, err := generateText(p, *maxTokens)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -70,6 +70,9 @@ func getStagedDiff() (string, error) {
 }
 
 func generateText(prompt string, maxTokens int) (string, error) {
+	if apiKey == "" {
+		return "", fmt.Errorf("OPENAI_API_KEY environment variable is not set")
+	}
 	url := "https://api.openai.com/v1/completions"
 	payload := fmt.Sprintf(`{"model": "text-davinci-003", "prompt": %q, "max_tokens": %d}`, prompt, maxTokens)
 
