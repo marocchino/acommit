@@ -4,6 +4,10 @@ Generate commit message with chatgpt api
 
 ## Install
 
+Download the binary from [GitHub Releases](https://github.com/marocchino/acommit/releases/) and drop it in your $PATH.
+
+Or use go install
+
 ```bash
 go install github.com/marocchino/acommit
 ```
