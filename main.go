@@ -68,7 +68,7 @@ func getStagedDiff() (string, error) {
 
 func generateText(prompt string) (string, error) {
 	if apiKey == "" {
-		return "", fmt.Errorf("OPENAI_API_KEY environment variable is not set")
+		return "", fmt.Errorf("OPENAI_API_KEY environment variable is not set. you can get it from https://platform.openai.com/account/api-keys.")
 	}
 	url := "https://api.openai.com/v1/chat/completions"
 	messages := []Message{
