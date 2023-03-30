@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -66,19 +67,58 @@ func getStagedDiff() (string, error) {
 	return result, nil
 }
 
-func generateText(prompt string) (string, error) {
+func fetchPrompt() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	filePath := filepath.Join(home, ".config", "acommit", "prompt.txt")
+
+	content, err := os.ReadFile(filePath)
+	if os.IsNotExist(err) {
+		fmt.Println("No prompt file found. Creating one at ~/.config/acommit/prompt.txt")
+		const prompt = "You are to act as the author of a commit message in git. Your mission is to create clean and comprehensive commit messages in the gitmoji convention with emoji and explain why a change was done. I'll send you an output of 'git diff --staged' command, and you convert it into a commit message. Add a short description of WHY the changes are done after the commit message. Don't start it with 'This commit', just describe the changes. Use the present tense. Commit title must not be longer than 74 characters."
+		// mkdir -p
+		err = os.MkdirAll(filepath.Dir(filePath), 0755)
+		if err != nil {
+			return "", err
+		}
+		file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
+		if err != nil {
+			return "", err
+		}
+		defer file.Close()
+		_, err = file.WriteString(prompt)
+		if err != nil {
+			return "", err
+		}
+		return prompt, nil
+	} else if err != nil {
+		return "", err
+	}
+	fmt.Println("Using prompt from ~/.config/acommit/prompt.txt")
+
+	return string(content), nil
+}
+
+func generateText(diff string) (string, error) {
 	if apiKey == "" {
 		return "", fmt.Errorf("OPENAI_API_KEY environment variable is not set. you can get it from https://platform.openai.com/account/api-keys.")
+	}
+	prompt, err := fetchPrompt()
+	if err != nil {
+		return "", err
 	}
 	url := "https://api.openai.com/v1/chat/completions"
 	messages := []Message{
 		{
 			Role:    "system",
-			Content: "You are to act as the author of a commit message in git. Your mission is to create clean and comprehensive commit messages in the gitmoji convention with emoji and explain why a change was done. I'll send you an output of 'git diff --staged' command, and you convert it into a commit message. Add a short description of WHY the changes are done after the commit message. Don't start it with 'This commit', just describe the changes. Use the present tense. Commit title must not be longer than 74 characters.",
+			Content: prompt,
 		},
 		{
 			Role:    "user",
-			Content: prompt,
+			Content: diff,
 		},
 	}
 
