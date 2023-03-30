@@ -8,12 +8,15 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-
-	"github.com/alecthomas/kingpin/v2"
 )
 
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
 type Choice struct {
-	Text string `json:"text"`
+	Message Message `json:"message"`
 }
 
 type JsonResponse struct {
@@ -21,20 +24,17 @@ type JsonResponse struct {
 }
 
 var (
-	apiKey    = os.Getenv("OPENAI_API_KEY")
-	maxTokens = kingpin.Flag("max-tokens", "Maximum number of tokens to generate.").Default("60").Int()
+	apiKey = os.Getenv("OPENAI_API_KEY")
 )
 
 func main() {
-	kingpin.Parse()
 
-	output, err := getStagedDiff()
+	diff, err := getStagedDiff()
 	if err != nil {
 		fmt.Printf("Error running git diff --staged: %v\n", err)
 		return
 	}
-	p := fmt.Sprintf("You are to act as the author of a commit message in git. Your mission is to create clean and comprehensive commit messages in the gitmoji convention with emoji and explain why a change was done. I'll send you an output of 'git diff --staged' command, and you convert it into a commit message. Add a short description of WHY the changes are done after the commit message. Don't start it with 'This commit', just describe the changes. Use the present tense. Commit title must not be longer than 74 characters.\n%s", output)
-	result, err := generateText(p, *maxTokens)
+	result, err := generateText(diff)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -66,14 +66,33 @@ func getStagedDiff() (string, error) {
 	return result, nil
 }
 
-func generateText(prompt string, maxTokens int) (string, error) {
+func generateText(prompt string) (string, error) {
 	if apiKey == "" {
 		return "", fmt.Errorf("OPENAI_API_KEY environment variable is not set")
 	}
-	url := "https://api.openai.com/v1/completions"
-	payload := fmt.Sprintf(`{"model": "text-davinci-003", "prompt": %q, "max_tokens": %d}`, prompt, maxTokens)
+	url := "https://api.openai.com/v1/chat/completions"
+	messages := []Message{
+		{
+			Role:    "system",
+			Content: "You are to act as the author of a commit message in git. Your mission is to create clean and comprehensive commit messages in the gitmoji convention with emoji and explain why a change was done. I'll send you an output of 'git diff --staged' command, and you convert it into a commit message. Add a short description of WHY the changes are done after the commit message. Don't start it with 'This commit', just describe the changes. Use the present tense. Commit title must not be longer than 74 characters.",
+		},
+		{
+			Role:    "user",
+			Content: prompt,
+		},
+	}
 
-	req, err := http.NewRequest("POST", url, strings.NewReader(payload))
+	data := map[string]interface{}{
+		"model":    "gpt-3.5-turbo",
+		"messages": messages,
+	}
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(payload)))
 	if err != nil {
 		return "", err
 	}
@@ -107,8 +126,8 @@ func parseResponse(result string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	text := response.Choices[0].Text
-	return strings.TrimPrefix(strings.Trim(text, "\n"), "Commit: "), nil
+	text := response.Choices[0].Message.Content
+	return strings.Trim(text, "\n"), nil
 }
 
 func commitWithEditor(message string) error {
